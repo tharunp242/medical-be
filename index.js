@@ -18,11 +18,11 @@ app.use('/api', apiRoutes);
 
 // Database Connection
 const connectDatabase = async () => {
-    if (!process.env.MONGODB_URI) {
-        throw new Error('MONGODB_URI is not set in environment variables');
+    if (!process.env.MONGO_URI) {
+        throw new Error('MONGO_URI is not set in environment variables');
     }
 
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGO_URI);
     console.log('Connected to MongoDB');
 };
 
