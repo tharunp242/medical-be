@@ -35,6 +35,23 @@ const generateToken = (user) => jwt.sign(
     { expiresIn: '7d' }
 );
 
+const SERVICEABLE_ERODE_AREAS = [
+    'erode',
+    'perundurai',
+    'bhavani',
+    'gobichettipalayam',
+    'sathyamangalam',
+    'anthiyur',
+    'chennimalai',
+    'modakurichi',
+    'kodumudi'
+];
+
+const isServiceableErodeAddress = (address = '') => {
+    const normalizedAddress = String(address).toLowerCase();
+    return SERVICEABLE_ERODE_AREAS.some((area) => normalizedAddress.includes(area));
+};
+
 // --- Auth Routes ---
 router.post('/auth/register', async (req, res) => {
     try {
@@ -161,12 +178,25 @@ router.patch('/auth/users/:id/age-category', async (req, res) => {
 
 router.patch('/auth/users/:id/profile', async (req, res) => {
     try {
-        const { name, phone, address } = req.body;
+        const { name, phone, address, ageCategory } = req.body;
         const updates = {};
 
         if (name !== undefined) updates.name = String(name).trim();
         if (phone !== undefined) updates.phone = String(phone).trim();
-        if (address !== undefined) updates.address = String(address).trim();
+        if (address !== undefined) {
+            const cleanedAddress = String(address).trim();
+            if (cleanedAddress && !isServiceableErodeAddress(cleanedAddress)) {
+                return res.status(400).json({ message: 'Delivery is currently available only in Erode district and surrounding areas' });
+            }
+            updates.address = cleanedAddress;
+        }
+        if (ageCategory !== undefined) {
+            const allowedAgeCategories = ['Child', 'Adult', 'Senior Citizen'];
+            if (!allowedAgeCategories.includes(ageCategory)) {
+                return res.status(400).json({ message: 'Invalid age category' });
+            }
+            updates.ageCategory = ageCategory;
+        }
 
         if (Object.keys(updates).length === 0) {
             return res.status(400).json({ message: 'No fields to update' });
@@ -352,6 +382,10 @@ router.post('/orders', async (req, res) => {
 
         if (!customerName || !email || !address) {
             return res.status(400).json({ message: 'Customer name, email and address are required' });
+        }
+
+        if (!isServiceableErodeAddress(address)) {
+            return res.status(400).json({ message: 'Delivery is currently available only in Erode district and surrounding areas' });
         }
 
         if (!Array.isArray(items) || items.length === 0) {
