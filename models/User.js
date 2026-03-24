@@ -28,6 +28,11 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    ageCategory: {
+        type: String,
+        enum: ['Child', 'Adult', 'Senior Citizen'],
+        default: 'Adult'
+    },
     role: {
         type: String,
         enum: ['user', 'admin'],

@@ -38,10 +38,15 @@ const generateToken = (user) => jwt.sign(
 // --- Auth Routes ---
 router.post('/auth/register', async (req, res) => {
     try {
-        const { name, email, password, phone, address } = req.body;
+        const { name, email, password, phone, address, ageCategory } = req.body;
+        const allowedAgeCategories = ['Child', 'Adult', 'Senior Citizen'];
 
         if (!name || !email || !password) {
             return res.status(400).json({ message: 'Name, email, and password are required' });
+        }
+
+        if (ageCategory && !allowedAgeCategories.includes(ageCategory)) {
+            return res.status(400).json({ message: 'Invalid age category' });
         }
 
         const normalizedEmail = String(email).toLowerCase();
@@ -56,6 +61,7 @@ router.post('/auth/register', async (req, res) => {
             password,
             phone,
             address,
+            ageCategory: ageCategory || 'Adult',
             role: 'user'
         });
 
@@ -95,7 +101,8 @@ router.post('/auth/login', async (req, res) => {
                 email: user.email,
                 role: user.role,
                 phone: user.phone,
-                address: user.address
+                address: user.address,
+                ageCategory: user.ageCategory
             },
             token: generateToken(user)
         });
@@ -116,6 +123,76 @@ router.get('/auth/users/:email', async (req, res) => {
         return res.json(user);
     } catch (err) {
         return res.status(500).json({ message: err.message });
+    }
+});
+
+router.patch('/auth/users/:id/age-category', async (req, res) => {
+    try {
+        const { ageCategory } = req.body;
+        const allowedAgeCategories = ['Child', 'Adult', 'Senior Citizen'];
+
+        if (!allowedAgeCategories.includes(ageCategory)) {
+            return res.status(400).json({ message: 'Invalid age category' });
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { $set: { ageCategory } },
+            { new: true, runValidators: true }
+        );
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        return res.json({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            phone: user.phone,
+            address: user.address,
+            ageCategory: user.ageCategory
+        });
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
+    }
+});
+
+router.patch('/auth/users/:id/profile', async (req, res) => {
+    try {
+        const { name, phone, address } = req.body;
+        const updates = {};
+
+        if (name !== undefined) updates.name = String(name).trim();
+        if (phone !== undefined) updates.phone = String(phone).trim();
+        if (address !== undefined) updates.address = String(address).trim();
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ message: 'No fields to update' });
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { $set: updates },
+            { new: true, runValidators: true }
+        );
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        return res.json({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            phone: user.phone,
+            address: user.address,
+            ageCategory: user.ageCategory
+        });
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
     }
 });
 
@@ -182,6 +259,65 @@ router.post('/products', async (req, res) => {
         res.status(201).json(newProduct);
     } catch (err) {
         res.status(400).json({ message: err.message });
+    }
+});
+
+// Update product details (Admin)
+router.put('/products/:id', async (req, res) => {
+    try {
+        const allowedFields = ['name', 'category', 'price', 'stock', 'description', 'image', 'dosage', 'requiresPrescription', 'sideEffects'];
+        const updates = {};
+
+        allowedFields.forEach((field) => {
+            if (req.body[field] !== undefined) {
+                updates[field] = req.body[field];
+            }
+        });
+
+        if (updates.price !== undefined) {
+            const price = Number(updates.price);
+            if (Number.isNaN(price) || price < 0) {
+                return res.status(400).json({ message: 'Price must be a non-negative number' });
+            }
+            updates.price = price;
+        }
+
+        if (updates.stock !== undefined) {
+            const stock = Number(updates.stock);
+            if (Number.isNaN(stock) || stock < 0) {
+                return res.status(400).json({ message: 'Stock must be a non-negative number' });
+            }
+            updates.stock = stock;
+        }
+
+        const updatedProduct = await Product.findByIdAndUpdate(
+            req.params.id,
+            { $set: updates },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedProduct) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        return res.json(updatedProduct);
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
+    }
+});
+
+// Delete a product (Admin)
+router.delete('/products/:id', async (req, res) => {
+    try {
+        const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+
+        if (!deletedProduct) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        return res.json({ message: 'Product deleted successfully', product: deletedProduct });
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
     }
 });
 
